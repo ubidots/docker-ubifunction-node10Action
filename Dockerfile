@@ -21,14 +21,16 @@ RUN apt-get update && apt-get install -y \
     graphicsmagick \
     unzip \
     && rm -rf /var/lib/apt/lists/*
+RUN mkdir ./src
+RUN mkdir ./platform
 WORKDIR /nodejsAction
 # Base actions
 COPY ./nodejsActionBase/app.js .
 COPY ./nodejsActionBase/runner.js .
-COPY ./nodejsActionBase/src/service.js .
-COPY ./nodejsActionBase/platform/platform.js .
-COPY ./nodejsActionBase/platform/openwhisk.js .
-COPY ./nodejsActionBase/platform/knative.js .
+COPY ./nodejsActionBase/src/service.js ./src/service.js
+COPY ./nodejsActionBase/platform/platform.js ./platform/platform.js
+COPY ./nodejsActionBase/platform/openwhisk.js ./platform/openwhisk.js
+COPY ./nodejsActionBase/platform/knative.js ./platform/knative.js
 COPY ./nodejsActionBase/buildtemplate.yaml .
 
 COPY . .
