@@ -202,7 +202,9 @@ function NodeActionService(config) {
             delete msg.value.reportUrl;
         }
 
-        let initTime = new Date().getTime();
+        let initDate = new Date();
+        let initDateUTC = initDate.getTime() + initDate.getTimezoneOffset() * 60 * 1000;
+        let initTime = initDate.getTime();
         return userCodeRunner
             .run(msg.value)
             .then(result => {
@@ -210,7 +212,8 @@ function NodeActionService(config) {
                 request.post(reportUrl, {
                     json: {
                       executionTime: totalExecutionTime,
-                      id: actionId
+                      id: actionId,
+                      timestamp: initDateUTC
                     }
                   }, (error, res, body) => {
                     if (error) {
