@@ -208,7 +208,7 @@ function NodeActionService(config) {
         return userCodeRunner
             .run(msg.value)
             .then(result => {
-                let totalExecutionTime = (new Date().getTime() - initTime) * 1000;
+                let totalExecutionTime = (new Date().getTime() - initTime);
                 request.post(reportUrl, {
                     json: {
                       executionTime: totalExecutionTime,
