@@ -1,4 +1,4 @@
-# Docker-UbiFunction-python3Action
+# Docker-UbiFunction-node10Action
 
 Base Docker to execute UbiFunction python actions. Based on the original IBM Openwhisk action runner: https://github.com/ibm-functions/runtime-nodejs and Apache Openwhisk node action: https://github.com/apache/openwhisk-runtime-nodejs
 
