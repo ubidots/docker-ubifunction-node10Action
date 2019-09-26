@@ -216,18 +216,18 @@ function NodeActionService(config) {
             .run(msg.value)
             .then(result => {
                 let totalExecutionTime = (new Date().getTime() - initTime);
-                request.post(reportUrl, {
-                    json: {
-                      executionTime: totalExecutionTime,
-                      id: actionId,
-                      timestamp: initDateUTC
-                    }
-                  }, (error, res, body) => {
-                    if (error && sentryUrl.length > 0) {
+                if (reportUrl != null) {
+                    request.post(reportUrl, {
+                        json: {
+                        executionTime: totalExecutionTime,
+                        id: actionId,
+                        timestamp: initDateUTC
+                        }
+                    }, (error, res, body) => {
                         Raven.config(sentryUrl).install();
                         Raven.captureException('*UbiFunction Container Node:* \n' + error);
-                    }
-                });
+                    });
+                }
                 if (typeof result !== 'object') {
                     console.error(`Result must be of type object but has type "${typeof result}":`, result);
                 }
