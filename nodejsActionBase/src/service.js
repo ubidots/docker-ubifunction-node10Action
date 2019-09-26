@@ -17,6 +17,7 @@
 
 const { initializeActionHandler, NodeActionRunner } = require('../runner');
 const request = require('request');
+var Raven = require('raven');
 
 function NodeActionService(config) {
 
@@ -194,12 +195,18 @@ function NodeActionService(config) {
         });
 
         let reportUrl;
+        let sentryUrl = "";
         let actionId = process.env['__OW_ACTION_NAME'];
         actionId = actionId.split('adapter-')[1];
 
         if (msg.value.hasOwnProperty('reportUrl')) {
             reportUrl = msg.value.reportUrl;
             delete msg.value.reportUrl;
+        }
+
+        if (msg.value.hasOwnProperty('sentryUrl')) {
+            sentryUrl = msg.value.sentryUrl;
+            delete msg.value.sentryUrl;
         }
 
         let initDate = new Date();
@@ -209,17 +216,18 @@ function NodeActionService(config) {
             .run(msg.value)
             .then(result => {
                 let totalExecutionTime = (new Date().getTime() - initTime);
-                request.post(reportUrl, {
-                    json: {
-                      executionTime: totalExecutionTime,
-                      id: actionId,
-                      timestamp: initDateUTC
-                    }
-                  }, (error, res, body) => {
-                    if (error) {
-                      console.error(error)
-                    }
-                });
+                if (reportUrl != null) {
+                    request.post(reportUrl, {
+                        json: {
+                        executionTime: totalExecutionTime,
+                        id: actionId,
+                        timestamp: initDateUTC
+                        }
+                    }, (error, res, body) => {
+                        Raven.config(sentryUrl).install();
+                        Raven.captureException('*UbiFunction Container Node:* \n' + error);
+                    });
+                }
                 if (typeof result !== 'object') {
                     console.error(`Result must be of type object but has type "${typeof result}":`, result);
                 }
