@@ -61,7 +61,7 @@ function NodeActionService(config) {
      * created a NodeActionRunner.
      * @returns {boolean}
      */
-    this.initialized = function isInitialized(){
+    this.initialized = function isInitialized() {
         return (typeof userCodeRunner !== 'undefined');
     };
 
@@ -71,7 +71,7 @@ function NodeActionService(config) {
      * @param app express app
      */
     this.start = function start(app) {
-        server = app.listen(config.port, function() {
+        server = app.listen(config.port, function () {
             var host = server.address().address;
             var port = server.address().port;
         });
@@ -215,17 +215,19 @@ function NodeActionService(config) {
         return userCodeRunner
             .run(msg.value)
             .then(result => {
-                let totalExecutionTime = (new Date().getTime() - initTime);
+                let totalExecutionTime = Math.ceil(new Date().getTime() - initTime);
                 if (reportUrl != null) {
                     request.post(reportUrl, {
                         json: {
-                        executionTime: totalExecutionTime,
-                        id: actionId,
-                        timestamp: initDateUTC
+                            "execution-time": totalExecutionTime,
+                            id: actionId,
+                            timestamp: initDateUTC
                         }
                     }, (error, res, body) => {
-                        Raven.config(sentryUrl).install();
-                        Raven.captureException('*UbiFunction Container Node:* \n' + error);
+                        if (error) {
+                            Raven.config(sentryUrl).install();
+                            Raven.captureException(error);
+                        }
                     });
                 }
                 if (typeof result !== 'object') {
