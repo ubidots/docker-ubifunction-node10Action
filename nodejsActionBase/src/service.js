@@ -220,8 +220,8 @@ function NodeActionService(config) {
                     request.post(reportUrl, {
                         json: {
                             "execution-time": totalExecutionTime,
-                            id: actionId,
-                            timestamp: initDateUTC
+                            "id": actionId,
+                            "timestamp": initDateUTC
                         }
                     }, (error, res, body) => {
                         if (error) {
