@@ -16,7 +16,10 @@
  */
 
 const { initializeActionHandler, NodeActionRunner } = require('../runner');
-const request = require('request');
+const https = require('https');
+var agentOptions = {keepAlive: true, maxSockets: 100};
+var httpsAgent = new https.Agent(agentOptions);
+var urlParser = require('url');
 var Raven = require('raven');
 
 function NodeActionService(config) {
@@ -217,18 +220,29 @@ function NodeActionService(config) {
             .then(result => {
                 let totalExecutionTime = Math.ceil(new Date().getTime() - initTime);
                 if (reportUrl != null) {
-                    request.post(reportUrl, {
-                        json: {
-                            "execution-time": totalExecutionTime,
-                            "id": actionId,
-                            "timestamp": initDateUTC
-                        }
-                    }, (error, res, body) => {
-                        if (error) {
-                            Raven.config(sentryUrl).install();
-                            Raven.captureException(error);
-                        }
+                    const data = JSON.stringify({
+                        "execution-time": totalExecutionTime,
+                        "id": actionId,
+                        "timestamp": initDateUTC
                     });
+                    const urlParsed = urlParser.parse(reportUrl)
+                    const options = {
+                        hostname: urlParsed.hostname,
+                        port: 443,
+                        path: urlParsed.path,
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        agent: httpsAgent,
+                      };
+                    const req = https.request(options);
+                    req.on('error', (error) => {
+                        Raven.config(sentryUrl).install();
+                        Raven.captureException(error);
+                    });
+                    req.write(data)
+                    req.end();
                 }
                 if (typeof result !== 'object') {
                     console.error(`Result must be of type object but has type "${typeof result}":`, result);
