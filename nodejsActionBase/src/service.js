@@ -233,9 +233,11 @@ function NodeActionService(config) {
                         method: 'POST',
                         headers: {
                           'Content-Type': 'application/json',
+                          'Connection': 'keep-alive',
+                          'Content-Length': Buffer.byteLength(data)
                         },
                         agent: httpsAgent,
-                      };
+                    };
                     const req = https.request(options);
                     req.on('error', (error) => {
                         Raven.config(sentryUrl).install();
