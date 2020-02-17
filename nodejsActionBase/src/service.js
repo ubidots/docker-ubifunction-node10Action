@@ -15,31 +15,27 @@
  * limitations under the License.
  */
 
-const { initializeActionHandler, NodeActionRunner } = require('../runner');
-const https = require('https');
-var agentOptions = {keepAlive: true, maxSockets: 100};
-var httpsAgent = new https.Agent(agentOptions);
-var urlParser = require('url');
-var Raven = require('raven');
+const { initializeActionHandler, NodeActionRunner } = require('../runner')
+const axios = require('axios')
+var Raven = require('raven')
 
-function NodeActionService(config) {
-
+function NodeActionService (config) {
     const Status = {
         ready: 'ready',
         starting: 'starting',
         running: 'running',
-        stopped: 'stopped',
-    };
+        stopped: 'stopped'
+    }
 
-    const ignoreRunStatus = config.allowConcurrent === undefined ? false : config.allowConcurrent.toLowerCase() === 'true';
+    const ignoreRunStatus = config.allowConcurrent === undefined ? false : config.allowConcurrent.toLowerCase() === 'true'
 
-    let status = Status.ready;
-    let server = undefined;
-    let userCodeRunner = undefined;
+    let status = Status.ready
+    let server
+    let userCodeRunner
 
-    function setStatus(newStatus) {
+    function setStatus (newStatus) {
         if (status !== Status.stopped) {
-            status = newStatus;
+            status = newStatus
         }
     }
 
@@ -51,12 +47,12 @@ function NodeActionService(config) {
      * { code: int, response: object }
      *
      */
-    function responseMessage(code, response) {
-        return { code: code, response: response };
+    function responseMessage (code, response) {
+        return { code: code, response: response }
     }
 
-    function errorMessage(code, errorMsg) {
-        return responseMessage(code, { error: errorMsg });
+    function errorMessage (code, errorMsg) {
+        return responseMessage(code, { error: errorMsg })
     }
 
     /**
@@ -64,60 +60,60 @@ function NodeActionService(config) {
      * created a NodeActionRunner.
      * @returns {boolean}
      */
-    this.initialized = function isInitialized() {
-        return (typeof userCodeRunner !== 'undefined');
-    };
+    this.initialized = function isInitialized () {
+        return (typeof userCodeRunner !== 'undefined')
+    }
 
     /**
      * Starts the server.
      *
      * @param app express app
      */
-    this.start = function start(app) {
+    this.start = function start (app) {
         server = app.listen(config.port, function () {
-            var host = server.address().address;
-            var port = server.address().port;
-        });
+            var host = server.address().address
+            var port = server.address().port
+        })
 
         // This is required as http server will auto disconnect in 2 minutes, this to not auto disconnect at all
-        server.timeout = 0;
-    };
+        server.timeout = 0
+    }
 
     /** Returns a promise of a response to the /init invocation.
      *
      *  req.body = { main: String, code: String, binary: Boolean }
      */
-    this.initCode = function initCode(req) {
+    this.initCode = function initCode (req) {
         if (status === Status.ready && userCodeRunner === undefined) {
-            setStatus(Status.starting);
+            setStatus(Status.starting)
 
-            let body = req.body || {};
-            let message = body.value || {};
+            let body = req.body || {}
+            let message = body.value || {}
 
             if (message.main && message.code && typeof message.main === 'string' && typeof message.code === 'string') {
                 return doInit(message).then(_ => {
-                    setStatus(Status.ready);
-                    return responseMessage(200, { OK: true });
+                    setStatus(Status.ready)
+                    return responseMessage(200, { OK: true })
                 }).catch(error => {
-                    setStatus(Status.stopped);
-                    let errStr = `Initialization has failed due to: ${error.stack ? String(error.stack) : error}`;
-                    return Promise.reject(errorMessage(502, errStr));
-                });
+                    setStatus(Status.stopped)
+                    let errStr = `Initialization has failed due to: ${error.stack ? String(error.stack) : error}`
+                    return Promise.reject(errorMessage(502, errStr))
+                })
             } else {
-                setStatus(Status.ready);
-                let msg = 'Missing main/no code to execute.';
-                return Promise.reject(errorMessage(403, msg));
+                setStatus(Status.ready)
+                let msg = 'Missing main/no code to execute.'
+                return Promise.reject(errorMessage(403, msg))
             }
         } else if (userCodeRunner !== undefined) {
-            let msg = 'Cannot initialize the action more than once.';
-            console.error('Internal system error:', msg);
-            return Promise.reject(errorMessage(403, msg));
+            let msg = 'Cannot initialize the action more than once.'
+            console.error('Internal system error:', msg)
+            return Promise.reject(errorMessage(403, msg))
         } else {
-            let msg = `System not ready, status is ${status}.`;
-            console.error('Internal system error:', msg);
-            return Promise.reject(errorMessage(403, msg));
+            let msg = `System not ready, status is ${status}.`
+            console.error('Internal system error:', msg)
+            return Promise.reject(errorMessage(403, msg))
         }
-    };
+    }
 
     /**
      * Returns a promise of a response to the /exec invocation.
@@ -127,143 +123,127 @@ function NodeActionService(config) {
      *
      * req.body = { value: Object, meta { activationId : int } }
      */
-    this.runCode = function runCode(req) {
+    this.runCode = function runCode (req) {
         if (status === Status.ready && userCodeRunner !== undefined) {
             if (!ignoreRunStatus) {
-                setStatus(Status.running);
+                setStatus(Status.running)
             }
 
             // these are defensive checks against the expected interface invariants
-            let msg = req && req.body || {};
+            let msg = req && req.body || {}
             if (msg.value === null || msg.value === undefined) {
-                msg.value = {};
+                msg.value = {}
             } else if (typeof msg.value !== 'object') {
-                let errStr = `Internal system error: the argument must be a dictionary but has type '${typeof msg.value}'.`;
-                console.error('Internal system error:', errStr);
-                return Promise.reject(errorMessage(403, errStr));
+                let errStr = `Internal system error: the argument must be a dictionary but has type '${typeof msg.value}'.`
+                console.error('Internal system error:', errStr)
+                return Promise.reject(errorMessage(403, errStr))
             }
 
             return doRun(msg).then(result => {
                 if (!ignoreRunStatus) {
-                    setStatus(Status.ready);
+                    setStatus(Status.ready)
                 }
                 if (typeof result !== 'object') {
-                    return errorMessage(502, 'The action did not return a dictionary.');
+                    return errorMessage(502, 'The action did not return a dictionary.')
                 } else {
-                    return responseMessage(200, result);
+                    return responseMessage(200, result)
                 }
             }).catch(error => {
-                let msg = `An error has occurred: ${error}`;
-                setStatus(Status.stopped);
-                return Promise.reject(errorMessage(502, msg));
-            });
+                let msg = `An error has occurred: ${error}`
+                setStatus(Status.stopped)
+                return Promise.reject(errorMessage(502, msg))
+            })
         } else {
-            let msg = userCodeRunner ? `System not ready, status is ${status}.` : 'System not initialized.';
-            console.error('Internal system error:', msg);
-            return Promise.reject(errorMessage(403, msg));
+            let msg = userCodeRunner ? `System not ready, status is ${status}.` : 'System not initialized.'
+            console.error('Internal system error:', msg)
+            return Promise.reject(errorMessage(403, msg))
         }
-    };
+    }
 
-    function doInit(message) {
-        if (message.env && typeof message.env == 'object') {
+    function doInit (message) {
+        if (message.env && typeof message.env === 'object') {
             Object.keys(message.env).forEach(k => {
-                let val = message.env[k];
+                let val = message.env[k]
                 if (typeof val !== 'object' || val == null) {
-                    process.env[k] = val ? val.toString() : "";
+                    process.env[k] = val ? val.toString() : ''
                 } else {
-                    process.env[k] = JSON.stringify(val);
+                    process.env[k] = JSON.stringify(val)
                 }
-            });
+            })
         }
 
         return initializeActionHandler(message)
             .then(handler => {
-                userCodeRunner = new NodeActionRunner(handler);
+                userCodeRunner = new NodeActionRunner(handler)
             })
             // emit error to activation log then flush the logs as this is the end of the activation
             .catch(error => {
-                console.error('Error during initialization:', error);
-                writeMarkers();
-                return Promise.reject(error);
-            });
+                console.error('Error during initialization:', error)
+                writeMarkers()
+                return Promise.reject(error)
+            })
     }
 
-    function doRun(msg) {
+    function doRun (msg) {
         // Move per-activation keys to process env. vars with __OW_ (reserved) prefix
         Object.keys(msg).forEach(k => {
             if (typeof msg[k] === 'string' && k !== 'value') {
-                let envVariable = '__OW_' + k.toUpperCase();
-                process.env[envVariable] = msg[k];
+                let envVariable = '__OW_' + k.toUpperCase()
+                process.env[envVariable] = msg[k]
             }
-        });
+        })
 
-        let reportUrl;
-        let sentryUrl = "";
-        let actionId = process.env['__OW_ACTION_NAME'];
-        actionId = actionId.split('adapter-')[1];
+        let reportUrl
+        let sentryUrl = ''
+        let actionId = process.env['__OW_ACTION_NAME']
+        actionId = actionId.split('adapter-')[1]
 
         if (msg.value.hasOwnProperty('reportUrl')) {
-            reportUrl = msg.value.reportUrl;
-            delete msg.value.reportUrl;
+            reportUrl = msg.value.reportUrl
+            delete msg.value.reportUrl
         }
 
         if (msg.value.hasOwnProperty('sentryUrl')) {
-            sentryUrl = msg.value.sentryUrl;
-            delete msg.value.sentryUrl;
+            sentryUrl = msg.value.sentryUrl
+            delete msg.value.sentryUrl
         }
 
-        let initDate = new Date();
-        let initDateUTC = initDate.getTime() + initDate.getTimezoneOffset() * 60 * 1000;
-        let initTime = initDate.getTime();
+        let initDate = new Date()
+        let initDateUTC = initDate.getTime() + initDate.getTimezoneOffset() * 60 * 1000
+        let initTime = initDate.getTime()
         return userCodeRunner
             .run(msg.value)
             .then(result => {
-                let totalExecutionTime = Math.ceil(new Date().getTime() - initTime);
+                let totalExecutionTime = Math.ceil(new Date().getTime() - initTime)
                 if (reportUrl != null) {
                     const data = JSON.stringify({
-                        "execution-time": totalExecutionTime,
-                        "id": actionId,
-                        "timestamp": initDateUTC
-                    });
-                    const urlParsed = urlParser.parse(reportUrl)
-                    const options = {
-                        hostname: urlParsed.hostname,
-                        port: 443,
-                        path: urlParsed.path,
-                        method: 'POST',
-                        headers: {
-                          'Content-Type': 'application/json',
-                          'Connection': 'keep-alive',
-                          'Content-Length': Buffer.byteLength(data)
-                        },
-                        agent: httpsAgent,
-                    };
-                    const req = https.request(options);
-                    req.on('error', (error) => {
-                        Raven.config(sentryUrl).install();
-                        Raven.captureException(error);
-                    });
-                    req.write(data)
-                    req.end();
+                        'execution-time': totalExecutionTime,
+                        'id': actionId,
+                        'timestamp': initDateUTC
+                    })
+                    axios.post(reportUrl, data).catch(function (error) {
+                        Raven.config(sentryUrl).install()
+                        Raven.captureException(error)
+                    })
                 }
                 if (typeof result !== 'object') {
-                    console.error(`Result must be of type object but has type "${typeof result}":`, result);
+                    console.error(`Result must be of type object but has type "${typeof result}":`, result)
                 }
-                writeMarkers();
-                return result;
+                writeMarkers()
+                return result
             }).catch(error => {
-                console.error(error);
-                writeMarkers();
-                return Promise.reject(error);
-            });
+                console.error(error)
+                writeMarkers()
+                return Promise.reject(error)
+            })
     }
 
-    function writeMarkers() {
-        console.log('XXX_THE_END_OF_A_WHISK_ACTIVATION_XXX');
-        console.error('XXX_THE_END_OF_A_WHISK_ACTIVATION_XXX');
+    function writeMarkers () {
+        console.log('XXX_THE_END_OF_A_WHISK_ACTIVATION_XXX')
+        console.error('XXX_THE_END_OF_A_WHISK_ACTIVATION_XXX')
     }
 }
 
-NodeActionService.getService = config => new NodeActionService(config);
+NodeActionService.getService = config => new NodeActionService(config)
 
-module.exports = NodeActionService;
+module.exports = NodeActionService

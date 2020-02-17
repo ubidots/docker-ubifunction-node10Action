@@ -95,7 +95,6 @@ function run(msg) {
 }
 
 function request(packet, next, logger) {
-    var http = require('request');
     var btoa = require('btoa');
 
     var options = {
