@@ -40,6 +40,21 @@ function NodeActionService (config) {
     }
 
     /**
+     *
+     */
+    function parseToJson(value) {
+        if (value && typeof value === 'object') {
+            return value;
+        }
+
+        try {
+            return JSON.parse(value);
+        } catch (error) {
+            return {};
+        }
+    }
+
+    /**
      * An ad-hoc format for the endpoints returning a Promise representing,
      * eventually, an HTTP response.
      *
@@ -187,7 +202,7 @@ function NodeActionService (config) {
     function doRun (msg) {
         // Move per-activation keys to process env. vars with __OW_ (reserved) prefix
         Object.keys(msg).forEach(k => {
-            if (typeof msg[k] === 'string' && k !== 'value') {
+            if (typeof msg[k] === 'string' && ['TRANSACTION_ID', 'ACTIVATION_ID', 'ACTION_NAME'].includes(k.toUpperCase())) {
                 let envVariable = '__OW_' + k.toUpperCase()
                 process.env[envVariable] = msg[k]
             }
@@ -207,6 +222,27 @@ function NodeActionService (config) {
             sentryUrl = msg.value.sentryUrl
             delete msg.value.sentryUrl
         }
+
+        // Parse _parameters data and sent to script as an extra key inside args
+        var parameterData = parseToJson(msg.value._parameters)
+        if (Object.keys(parameterData).length > 0) {
+            msg.value.parameters = parameterData;
+        }
+        delete msg.value._parameters;
+
+        // Parse environment data and create each key as an environment variable
+        var environmentData = parseToJson(msg.value._environment);
+        Object.keys(environmentData).forEach(key => {
+            process.env[`__${key}`] = environmentData[key];
+        });
+        delete msg.value._environment;
+
+        // Create each key on auth_credentials as an environment variable
+        var credentialsData = parseToJson(msg.value._auth_credentials);
+        Object.keys(credentialsData).forEach(key => {
+            process.env[`__${key}`] = credentialsData[key];
+        });
+        delete msg.value._auth_credentials;
 
         let initDate = new Date()
         let initDateUTC = initDate.getTime() + initDate.getTimezoneOffset() * 60 * 1000
