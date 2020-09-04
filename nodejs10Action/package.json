@@ -34,7 +34,7 @@
     "gm": "1.23.1",
     "ibm-cos-sdk": "1.5.0",
     "ibm-watson": "4.2.1",
-    "ibm_db": "2.5.2",
+    "ibm_db": "2.7.1",
     "ibmiotf": "0.2.41",
     "iconv-lite": "0.4.24",
     "jsdom": "13.2.0",
