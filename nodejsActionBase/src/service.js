@@ -226,9 +226,8 @@ function NodeActionService (config) {
         // Parse _parameters data and sent to script as an extra key inside args
         var parameterData = parseToJson(msg.value._parameters)
         if (Object.keys(parameterData).length > 0) {
-            msg.value.parameters = parameterData;
+            msg.value._parameters = parameterData;
         }
-        delete msg.value._parameters;
 
         // Parse environment data and create each key as an environment variable
         var environmentData = parseToJson(msg.value._environment);
